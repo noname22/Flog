@@ -1,0 +1,12 @@
+Fields
+
+Message:
+	application
+	start_time
+	instance
+	time
+	file
+	line
+	message
+	severity
+	
