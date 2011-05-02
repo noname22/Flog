@@ -1,54 +1,117 @@
 #!/usr/bin/python
 
-import sqlite3, socket, thread, threading
+import sqlite3, socket, thread, threading, struct, uuid, time, Queue
 
 class Db:
-	def __init__(this):
-		this.mutex = threading.mutex.mutex
-		this.conn = sqlite3.connect('flog.sqlite')
-		this.cursor = this.conn.cursor()
+	def __init__(self):
+		self.cmdQueue = Queue.Queue()
 
-		this.cursor.execute("""create table if not exists messages 
+		self.conn = sqlite3.connect('flog.sqlite')
+		self.cursor = self.conn.cursor()
+
+		self.cursor.execute("""create table if not exists messages 
 			(
 				application TEXT, 
-				start_time INTEGER, 
+				start_time FLOAT, 
 				instance INTEGER, 
 				time_sent INTEGER, 
-				time_recieved INTEGER, 
+				time_recieved FLOAT, 
 				file_name TEXT, 
 				line_number INTEGER, 
 				message TEXT, 
 				severity INTEGER
 			)""")
+	def processQueue(self):
+		while not self.cmdQueue.empty():
+			self.cursor.execute(self.cmdQueue.get())
 
-	def insert_message(this, application, start_time, instance, time_sent, time_received, file_name, line_number, message, severity):
-		this.mutex.lock()
-		this.cursor.execute("""insert into messages values
+		self.conn.commit()
+
+	def insert_message(self, application, start_time, instance, time_sent, time_received, file_name, line_number, message, severity):
+		self.cmdQueue.put("""insert into messages values
 			(
 				'%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'
 			)""" % (application, start_time, instance, time_sent, time_received, file_name, line_number, message, severity))
-		this.conn.commit()
-		this.mutex.unlock()
 
-	def list_messages(this):
-		this.mutex.lock()
-		this.cursor.execute("select * from messages")
-		ret = this.cursor.fetchall()
-		this.mutex.unlock()
-		return ret
+	def list_messages(self):
+		self.cursor.execute("select * from messages")
+		return self.cursor.fetchall()
 
+class NetworkError(Exception):
+	def __init__(self, value):
+		self.value = value
+	def __str__(self):
+		return repr(self.value)	
 
+class SocketReader:
+	def __init__(self, s):
+		closed = False
+		self.s = s
+
+	def read_exactly(self, numbytes):
+		data = ""
+		for i in range(numbytes):
+			data += self.s.recv(1)
+
+		if len(data) < numbytes:
+			raise NetworkError('connection closed')
+
+		return data
+
+	def read_uint32(self):
+		r = self.read_exactly(4)
+		return struct.unpack("!I", r)[0]
+	
+	def read_uint8(self):
+		r = self.read_exactly(1)
+		return struct.unpack("!B", r)[0]
+	
+	def read_uint64(self):
+		r = self.read_exactly(8)
+		return struct.unpack("!Q", r)[0]
+
+	def read_string(self):
+		len = self.read_uint32()
+		return self.read_exactly(len)
+
+def db_thread():
+	global db
+	db = Db()
+	while 1:
+		db.processQueue()
+		time.sleep(0.1)
 
 def handle_connection(clientsock, addr):
+	reader = SocketReader(clientsock)
+
+	instance = uuid.uuid4()
+	start_time = time.time()
+
 	while 1:
-		data = clientsock.recv(1024)
-		if not data: 
-			break
+		try:
+			app = reader.read_string()
+			time_sent = float(reader.read_uint64()) / 1000.0
+			time_received = time.time()
+			file = reader.read_string()
+			line = reader.read_uint32()
+			severity = reader.read_uint8()
+			message = reader.read_string()
 
-		
-		#clientsock.send('... %s' % data)
+			print app
+			print time_sent
+			print time_received
+			print file
+			print line
+			print severity
+			print message
+	
+			db.insert_message(app, start_time, instance, time_sent, time_received, file, line, message, severity)
+			
+		except NetworkError, e:
+			print e
+			return
 
-db = Db()
+thread.start_new_thread(db_thread, ())
 
 serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

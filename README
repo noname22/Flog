@@ -1,0 +1,23 @@
+Fields
+
+Message:
+  application   application name
+  start_time    application start time
+  instance      application instance id / UUID
+  time          time the message was generated
+  file          file which generated the message
+  line          line which generated the message
+  message        the message
+  severity      severity of the message, enum: debug1, debug2, debug3, verbose, info, warning, error, fatal
+
+Protocol
+
+Strings are sent prepended with a 32 bit unsigned integer representing the string length
+
+Message
+  string    application
+  int64     time
+  string    file
+  uint32    line
+  int8      severity
+  string    message
