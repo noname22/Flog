@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
-import sqlite3, socket, thread, threading, struct, uuid, time, Queue
+import sqlite3, socket, thread, threading, struct, uuid, time, Queue, json
 import BaseHTTPServer, wsgiref.simple_server
+
+webSendQueue = Queue.Queue()
 
 class Db:
 	def __init__(self):
@@ -22,6 +24,7 @@ class Db:
 				message TEXT, 
 				severity INTEGER
 			)""")
+
 	def processQueue(self):
 		while not self.cmdQueue.empty():
 			self.cursor.execute(self.cmdQueue.get())
@@ -93,7 +96,7 @@ def db_thread():
 def handle_connection(clientsock, addr):
 	reader = SocketReader(clientsock)
 
-	instance = uuid.uuid4()
+	instance = str(uuid.uuid4())
 	start_time = time.time()
 
 	handshake = reader.read_string()
@@ -128,6 +131,8 @@ def handle_connection(clientsock, addr):
 				print message
 		
 				db.insert_message(app, start_time, instance, time_sent, time_received, file, line, message, severity)
+				webSendQueue.put({'app': app, 'start_time': start_time, 'instance': instance, 'time_sent': time_sent,\
+				'time_received': time_received, 'file': file, 'severity': severity, 'message': message});
 				
 			except NetworkError, e:
 				print e
@@ -166,7 +171,13 @@ function update()
 	hr.open("GET","messages", true);
 	hr.onreadystatechange = function() 
 	{
-		addRow(hr.responseText);
+		if(hr.responseText != ""){
+			//document.write(hr.responseText);
+			var response = eval(hr.responseText);
+			for(var i in response){
+				addRow(response[i].message);
+			}
+		}
 	}
 	hr.send(null);
 
@@ -215,7 +226,13 @@ def web_server(environ, start_response):
 	print  environ["PATH_INFO"]
 	if environ["PATH_INFO"] == "/messages":
 		start_response("200 OK", [("content-type", "text/html")])
-		return ['test']
+
+		send = []
+
+		while not webSendQueue.empty():
+			send.append(webSendQueue.get())
+		
+		return [json.dumps(send)]
 		#clen = int(environ["CONTENT_LENGTH"])
 		#return [environ["wsgi.input"].read(clen)]
 	else:
