@@ -33,6 +33,7 @@
 #include <netdb.h>
 #include <stdbool.h>
 #include <sys/time.h>
+#include <time.h>
 
 typedef enum { Flog_TStream, Flog_TServer } Flog_TargetType;
 
@@ -145,7 +146,7 @@ uint64_t Flog_GetTimeStamp()
 {
 	struct timeval val;
 	gettimeofday(&val, NULL);
-	return (uint64_t)val.tv_sec * 1000LL + (uint64_t)val.tv_usec;
+	return (uint64_t)val.tv_sec * 1000LL + (uint64_t)val.tv_usec / 1000LL;
 }
 
 bool Flog_WriteUint64(int sockfd, uint64_t num)
@@ -199,8 +200,20 @@ void Flog_LogToStream(Flog_Target* target, const char* file,
 		fileOut = AnsiBoldOut;
 	}
 
-	fprintf(target->stream, "[%s%s%s] %s%s%s:%d %s\n", colorIn, Flog_SeverityToString(severity), colorOut, 
-		fileIn, file, fileOut, lineNumber, message);
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	struct tm* t = localtime(&tv.tv_sec);
+
+	int headerLen = fprintf(target->stream, "%02d:%02d:%02d [%s%s%s] %s%s%s:%d ", 
+		t->tm_hour, t->tm_min, t->tm_sec,
+		colorIn, Flog_SeverityToString(severity), colorOut, 
+		fileIn, file, fileOut, lineNumber);
+
+	for(int i = 0; i < 52 - headerLen; i++){
+		putc(' ', target->stream);
+	}
+
+	fprintf(target->stream, "%s\n", message);
 }
 
 void Flog_CopyString(const char* source, char** target)

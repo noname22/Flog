@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sqlite3, socket, thread, threading, struct, uuid, time, Queue
+import BaseHTTPServer, wsgiref.simple_server
 
 class Db:
 	def __init__(self):
@@ -134,7 +135,98 @@ def handle_connection(clientsock, addr):
 
 	print "unknown client type: %s" % type
 
+ajax_html = """
+<html>
 
+<head>
+<title>AJAX + wsgiref Demo</title>
+<script language="Javascript">
+function ajax_send() 
+{
+    hr = new XMLHttpRequest();
+
+    hr.open("POST", "/", true);
+    hr.setRequestHeader("Content-Type", 
+        "application/x-www-form-urlencoded");
+
+    hr.onreadystatechange = function() 
+    {
+        if (hr.readyState == 4){
+        	document.getElementById("result").innerHTML = hr.responseText;
+		addRow(hr.responseText);
+	}
+    }
+
+    hr.send(document.f.word.value);
+}
+
+function update()
+{
+	hr = new XMLHttpRequest();
+	hr.open("GET","messages", true);
+	hr.onreadystatechange = function() 
+	{
+		addRow(hr.responseText);
+	}
+	hr.send(null);
+
+	timerID = self.setTimeout("update()", 100)
+}
+
+function addRow(data){
+	var tbody = document.getElementById("msgbody");
+	var row = document.createElement("tr");
+	var td1 = document.createElement("td");
+	td1.appendChild(document.createTextNode(data));
+	var td2 = document.createElement("td");
+	td2.appendChild (document.createTextNode("column 2"));
+	row.appendChild(td1);
+	row.appendChild(td2);
+	tbody.appendChild(row);
+}
+
+</script>
+</head>
+
+<body onLoad="update()">
+<center>
+<form name="f" onsubmit="ajax_send(); return false;">
+    <p> 
+        <input name="word" type="text">
+        <input value="Do It" type="submit">
+    </p>
+    <div id="result"></div>
+</form>
+
+<table>
+  <tbody id="msgbody">
+    <tr>
+      <td>row1_column1</td><td>row1_column1</td>
+    </tr>
+  </tbody>
+</table>
+
+</center>
+</body>
+</html>
+"""
+
+def web_server(environ, start_response):
+	print  environ["PATH_INFO"]
+	if environ["PATH_INFO"] == "/messages":
+		start_response("200 OK", [("content-type", "text/html")])
+		return ['test']
+		#clen = int(environ["CONTENT_LENGTH"])
+		#return [environ["wsgi.input"].read(clen)]
+	else:
+		start_response("200 OK", [("content-type", "text/html")])
+		return [ajax_html]
+
+def web_thread():
+	httpd = wsgiref.simple_server.make_server("", 8080, web_server)
+	httpd.serve_forever()
+
+thread.start_new_thread(web_thread, ())
 thread.start_new_thread(db_thread, ())
 
 serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -142,11 +234,14 @@ serversock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 serversock.bind(('localhost', 13000))
 serversock.listen(5)
 
-while 1:
-	print 'waiting for connections...'
-	clientsock, addr = serversock.accept()
-	print '...connected from:', addr
-	thread.start_new_thread(handle_connection, (clientsock, addr))
+try:
+	while 1:
+		print 'waiting for connections...'
+		clientsock, addr = serversock.accept()
+		print '...connected from:', addr
+		thread.start_new_thread(handle_connection, (clientsock, addr))
+except KeyboardInterrupt:
+	pass
 
 
 #db.insert_message("test", 123, 123, 123, 123, "test.cpp", 100, "test", 1)
