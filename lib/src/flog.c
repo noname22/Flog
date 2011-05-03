@@ -1,3 +1,27 @@
+// FIXME check number of targets
+// FIXME handle shutdown
+
+#define ABlack "0"
+#define ARed "1"
+#define AGreen "2"
+#define AYellow "3"
+#define ABlue "4"
+#define AMagenta "5"
+#define ACyan "6"
+#define AWhite "7"
+
+#define AnsiColorIn(__color) "\033[9" __color "m"
+#define AnsiColorOut "\033[39m"
+#define AnsiColorBGIn(__color) "\033[4" __color "m"
+#define AnsiColorBGOut "\033[49m"
+
+#define AnsiBoldIn "\033[1m"
+#define AnsiBoldOut "\033[22m"
+#define AnsiUnderlineIn "\033[4m" 
+#define AnsiUnderlineOut "\033[24m"
+#define AnsiInvertIn "\033[7m" 
+#define AnsiInvertOut "\033[27m"
+
 #include "flog.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +45,7 @@ typedef struct Flog_STarget
 	
 	int sockfd; /* for servers */
 	FILE* stream; /* for streams */
+	bool useAnsiColors;
 } Flog_Target;
 
 #define FLOG_MAX_TARGETS 0xff
@@ -33,22 +58,28 @@ typedef struct {
 
 static Flog_Internal internal;
 
-const char* Flog_SeverityToString(Flog_Severity severity)
+int Flog_SeverityToIndex(Flog_Severity severity)
 {
-	static char *severityString[] = { "D1", "D2", "D3", "VV", "II", "WW", "EE", "FF", "??" };
 	for(int i = 0; i < 8; i++){
 		if(((int)severity >> i) & 1){
-			return severityString[i];
+			return i;
 		}
 	}
 
-	return severityString[8];
+	return 8;
+}
+
+const char* Flog_SeverityToString(Flog_Severity severity)
+{
+	static char *severityString[] = { "D1", "D2", "D3", "VV", "II", "WW", "EE", "FF", "??" };
+	return severityString[Flog_SeverityToIndex(severity)];
 }
 
 // Write exactly 'numbytes' bytes to the stream
 bool Flog_WriteExactly(int sockfd, const char* msg, int numbytes)
 {
 	int left = numbytes;
+
 	while(left > 0){
 		int wrote = write(sockfd, msg, left);
 
@@ -62,10 +93,36 @@ bool Flog_WriteExactly(int sockfd, const char* msg, int numbytes)
 	return false;
 }
 
+bool Flog_ReadExactly(int sockfd, char* buffer, int numbytes)
+{
+	int left = numbytes;
+	while(left > 0){
+		int r = read(sockfd, buffer, left);
+
+		if(r <= 0){
+			return false;
+		}
+
+		left -= r;
+		buffer += r;
+	}
+	
+	return true;
+}
+
 bool Flog_WriteUint32(int sockfd, uint32_t num)
 {
 	num = htonl(num);
 	return Flog_WriteExactly(sockfd, (char*)&num, 4);
+}
+
+bool Flog_ReadUint32(int sockfd, uint32_t* out)
+{
+	if(!Flog_ReadExactly(sockfd, (char*)out, 4)){
+		return false;
+	}
+	*out = ntohl(*out);
+	return true;
 }
 
 // 64 bit integer to network byte order
@@ -97,6 +154,16 @@ bool Flog_WriteUint64(int sockfd, uint64_t num)
 	return Flog_WriteExactly(sockfd, (char*)&num, 8);
 }
 
+bool Flog_ReadString(int sockfd, char* buffer, int max)
+{
+	// FIXME care about max :x
+	uint32_t len;
+	Flog_ReadUint32(sockfd, &len);
+	Flog_ReadExactly(sockfd, buffer, len);
+	buffer[len] = '\0';
+	return true;
+}
+
 void Flog_WriteString(int sockfd, const char* str)
 {
 	int len = strlen(str);
@@ -120,7 +187,20 @@ void Flog_LogToServer(Flog_Target* target, const char* file,
 void Flog_LogToStream(Flog_Target* target, const char* file, 
 	uint32_t lineNumber, Flog_Severity severity, const char* message)
 {
-	fprintf(target->stream, "[%s] %s %d: %s\n", Flog_SeverityToString(severity), file, lineNumber, message);
+	static char *colorString[] = { AnsiColorIn(ACyan), AnsiColorIn(ACyan), AnsiColorIn(ACyan), AnsiColorIn(AMagenta), 
+		AnsiColorIn(AGreen), AnsiColorIn(AYellow), AnsiColorIn(ARed), AnsiColorIn(ARed), "" };
+	static char ansiColorOut[] = AnsiColorOut;
+	char* colorIn = colorString[8], *colorOut = colorString[8], *fileIn = colorString[8], *fileOut = colorString[8];
+
+	if(target->useAnsiColors){
+		colorOut = ansiColorOut;
+		colorIn = colorString[Flog_SeverityToIndex(severity)];
+		fileIn = AnsiBoldIn;
+		fileOut = AnsiBoldOut;
+	}
+
+	fprintf(target->stream, "[%s%s%s] %s%s%s:%d %s\n", colorIn, Flog_SeverityToString(severity), colorOut, 
+		fileIn, file, fileOut, lineNumber, message);
 }
 
 void Flog_CopyString(const char* source, char** target)
@@ -149,6 +229,9 @@ int Flog_AddTargetServer(const char* address, uint16_t port, uint8_t filter)
 	target->log_callback = Flog_LogToServer;
 
 	target->sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	
+	struct timeval tv = {10, 0};
+	setsockopt(target->sockfd, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof(struct timeval));
 
 	if (!target->sockfd < 0){
 		goto error;
@@ -172,6 +255,19 @@ int Flog_AddTargetServer(const char* address, uint16_t port, uint8_t filter)
 		goto error;
 	}
 	
+	// Handshake
+
+	Flog_WriteString(target->sockfd, "flog");
+	Flog_WriteString(target->sockfd, "logger");
+	Flog_WriteUint32(target->sockfd, 1);
+
+	char buffer[1024];
+
+	Flog_ReadString(target->sockfd, buffer, sizeof(buffer));
+	if(strcmp(buffer, "ok")){
+		goto error;
+	}
+
 	internal.numTargets++;
 
 	return 1;
@@ -181,7 +277,7 @@ int Flog_AddTargetServer(const char* address, uint16_t port, uint8_t filter)
 	return 0;
 }
 
-void Flog_AddTargetStream(FILE* stream, uint8_t filter)
+void Flog_AddTargetStream(FILE* stream, uint8_t filter, int useAnsiColors)
 {
 	Flog_Target* target = &internal.targets[internal.numTargets];
 	
@@ -189,6 +285,7 @@ void Flog_AddTargetStream(FILE* stream, uint8_t filter)
 	target->filter = filter;
 	target->log_callback = Flog_LogToStream;
 	target->stream = stream;
+	target->useAnsiColors = useAnsiColors;
 
 	internal.numTargets++;
 }
@@ -200,7 +297,7 @@ int Flog_AddTargetFile(const char* filename, uint8_t filter)
 		return 0;
 	}
 
-	Flog_AddTargetStream(f, filter);
+	Flog_AddTargetStream(f, filter, false);
 	return 1;
 }
 

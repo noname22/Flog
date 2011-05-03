@@ -27,7 +27,7 @@ typedef enum {
 void Flog_Init(const char* applicationName);
 
 int Flog_AddTargetFile(const char* filename, uint8_t filter);
-void Flog_AddTargetStream(FILE* stream, uint8_t filter);
+void Flog_AddTargetStream(FILE* stream, uint8_t filter, int useAnsiColors);
 int Flog_AddTargetServer(const char* address, uint16_t port, uint8_t filter);
 
 void Flog_Log(const char* file, uint32_t lineNumber, Flog_Severity severity, const char* format, ...);

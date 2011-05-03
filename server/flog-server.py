@@ -58,6 +58,14 @@ class SocketReader:
 
 		return data
 
+	def write_exactly(self, data):
+		for i in range(len(data)):
+			self.s.send(data[i])
+
+	def write_string(self, string):
+		self.write_exactly(struct.pack("!I", len(string)))
+		self.write_exactly(string)
+
 	def read_uint32(self):
 		r = self.read_exactly(4)
 		return struct.unpack("!I", r)[0]
@@ -87,29 +95,45 @@ def handle_connection(clientsock, addr):
 	instance = uuid.uuid4()
 	start_time = time.time()
 
-	while 1:
-		try:
-			app = reader.read_string()
-			time_sent = float(reader.read_uint64()) / 1000.0
-			time_received = time.time()
-			file = reader.read_string()
-			line = reader.read_uint32()
-			severity = reader.read_uint8()
-			message = reader.read_string()
-
-			print app
-			print time_sent
-			print time_received
-			print file
-			print line
-			print severity
-			print message
+	handshake = reader.read_string()
 	
-			db.insert_message(app, start_time, instance, time_sent, time_received, file, line, message, severity)
-			
-		except NetworkError, e:
-			print e
-			return
+	if handshake != "flog":
+		print "invalid handshake from client"
+
+	type = reader.read_string()
+	protocol_version = reader.read_uint32()
+
+	print "client is a %s and speaks protocol version %d" % (type, protocol_version)
+
+	reader.write_string("ok")
+
+	if type == "logger":
+		while 1:
+			try:
+				app = reader.read_string()
+				time_sent = float(reader.read_uint64()) / 1000.0
+				time_received = time.time()
+				file = reader.read_string()
+				line = reader.read_uint32()
+				severity = reader.read_uint8()
+				message = reader.read_string()
+
+				print app
+				print time_sent
+				print time_received
+				print file
+				print line
+				print severity
+				print message
+		
+				db.insert_message(app, start_time, instance, time_sent, time_received, file, line, message, severity)
+				
+			except NetworkError, e:
+				print e
+				return
+
+	print "unknown client type: %s" % type
+
 
 thread.start_new_thread(db_thread, ())
 

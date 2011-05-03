@@ -1,4 +1,4 @@
-Fields
+Database Fields
 
 Message:
   application   application name
@@ -13,6 +13,16 @@ Message:
 Protocol
 
 Strings are sent prepended with a 32 bit unsigned integer representing the string length
+
+Handshake
+
+client initiates with
+  string    "flog" (ie. 0x00 0x00 0x00 0x04 'f' 'l' 'o' 'g')
+  string    "viewer", or "logger" depending on the connection type
+  int32     highest protocol version the client supports
+
+server answers with
+  string    "ok" or "no" (ie. 0x00 0x00 0x00 0x02 'o' 'k' / 'n' 'o')
 
 Message
   string    application
