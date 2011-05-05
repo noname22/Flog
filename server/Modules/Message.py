@@ -17,7 +17,6 @@ class Message:
 			return {1: 'D1', 2:'D2', 4:'D3', 8:'VV', 16:'II', 32:'WW', 64:'EE', 128:'FF'}[self.severity]
 		except KeyError:
 			return "??"
-		
 
 	def to_string(self):
 		d = datetime.datetime.fromtimestamp(self.time_sent).strftime("%X")

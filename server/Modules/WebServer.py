@@ -22,8 +22,13 @@ class _RequestHandler(WSGIRequestHandler):
 
 class WebServer:
 	send_queue = Queue.Queue()
+	cb_list = []
+
 	def __init__(self):
 		self.httpd = wsgiref.simple_server.make_server("", 8080, self._handle_request, handler_class=_RequestHandler)
+
+	def add_new_viewer_callback(self, fun):
+		cb_list.append(fun)
 	
 	def _handle_request(self, environ, start_response):
 		if environ["PATH_INFO"] == "/messages":
@@ -39,9 +44,14 @@ class WebServer:
 			#return [environ["wsgi.input"].read(clen)]
 		else:
 			start_response("200 OK", [("content-type", "text/html")])
+
 			f = open('Files/viewer.html')
 			viewer = f.read()
 			f.close()
+
+			for cb in self.cb_list:
+				cb(self)
+
 			return [viewer]
 
 	def serve_forever(self):

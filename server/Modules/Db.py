@@ -23,7 +23,6 @@ class Db:
 				severity INTEGER
 			)""")
 		
-
 	def _process_queue(self):
 		while not self.cmdQueue.empty():
 			self.cursor.execute(self.cmdQueue.get())
