@@ -74,7 +74,7 @@ class Connection:
 					cb(m)
 
 			except NetworkError, e:
-				print e
+				#print e
 				return
 
 
@@ -87,7 +87,7 @@ class Connection:
 		type = self._read_string()
 		protocol_version = self._read_uint32()
 
-		print "client is a %s and speaks protocol version %d" % (type, protocol_version)
+		#print "client is a %s and speaks protocol version %d" % (type, protocol_version)
 
 		self._write_string("ok")
 

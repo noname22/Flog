@@ -9,7 +9,7 @@ import thread
 import threading
 
 def Main():
-	server = Server()
+	server = Server("localhost", 13000)
 	db = Db()
 	web_server = WebServer()
 	stdout = StdOut()
