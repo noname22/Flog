@@ -7,6 +7,8 @@
 		font-size: 20px;
 		color: #000000;
 		background-color: #EEE;
+		margin: 0;
+		padding: 0 0 <length> 0;
 	}
 
 	h {
@@ -33,15 +35,23 @@
 		text-decoration:none;
 	}
 
-	div.menu {
+	div#menu {
 		background-color: white;
-		width: 500px;
-		height: 30px;
-		width: 99%;
-		position: absolute;
+		position:absolute;
+		bottom:0;
+		left:0;
+		width:100%;
+		height:<length>;
+		border-top: 2px solid gray;
 	}
 
-	table {
+	#menucontent {
+		margin-left: auto;
+		margin-right: auto;
+		width: 600px;
+	}
+
+	table.messages {
 		background-color: #fafafa;
 		border-collapse:collapse;
 		width: 85%;
@@ -49,11 +59,30 @@
 		margin-bottom: 50px;
 	}
 
+	table.filter {
+		background-color: #fafafa;
+		border-collapse:collapse;
+	}
+
 	td {
 		padding: 5px;
 		margin: 0;
 		border: 1px solid #eee;
 	}
+
+	@media screen{
+		body>div#menu{
+			position: fixed;
+		}
+	}
+	* html body{
+		overflow:hidden;
+	} 
+	* html div#content{
+		height:100%;
+		overflow:auto;
+	}
+
 </style> 
 
 <script language="Javascript">
@@ -160,33 +189,58 @@ function addRow(msg){
 <div id="result"></div>
 </form>-->
 
-<table>
-	<thead>
-		<tr>
-			<td>App</td>
-			<td>Instance</td>
-			<td>Start Time</td>
-			<td>Time Sent</td>
-			<td>Time Recv</td>
-			<td>File</td>
-			<td>Line</td>
-			<td>Message</td>
-			<td>Severity</td>
-		</tr>
-	</thead>
-	<tbody id="msgbody">
-		<tr>
-		</tr>
-	</tbody>
-</table>
-
-<div class="menu" id="menu">
-	<form>
-	auto scroll <input id="autoscroll" type="checkbox" checked/>
-	</form>
+<div id="content">
+	<table class="messages">
+		<thead>
+			<tr>
+				<td>App</td>
+				<td>Instance</td>
+				<td>Start Time</td>
+				<td>Time Sent</td>
+				<td>Time Recv</td>
+				<td>File</td>
+				<td>Line</td>
+				<td>Message</td>
+				<td>Severity</td>
+			</tr>
+		</thead>
+		<tbody id="msgbody">
+			<tr>
+			</tr>
+		</tbody>
+	</table>
 </div>
 
-<div id="debug">
+<div id="menu">
+	<div id="menucontent">
+		<form>
+		auto scroll <input id="autoscroll" type="checkbox" checked/>
+
+		filter: 
+		<table class="filter">
+			<tr>
+				<td>D1</td>
+				<td>D2</td>
+				<td>D3</td>
+				<td>VV</td>
+				<td>II</td>
+				<td>WW</td>
+				<td>EE</td>
+				<td>FF</td>
+			</tr>
+			<tr>
+				<td><input id="D1" type="checkbox" checked/></td>
+				<td><input id="D2" type="checkbox" checked/></td>
+				<td><input id="D3" type="checkbox" checked/></td>
+				<td><input id="VV" type="checkbox" checked/></td>
+				<td><input id="II" type="checkbox" checked/></td>
+				<td><input id="WW" type="checkbox" checked/></td>
+				<td><input id="EE" type="checkbox" checked/></td>
+				<td><input id="FF" type="checkbox" checked/></td>
+			</tr>
+		</table>
+		</form>
+	</div>
 </div>
 
 </body>
