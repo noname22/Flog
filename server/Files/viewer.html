@@ -1,0 +1,193 @@
+<html>
+<head>
+<title>Flog Web Viewer</title>
+<style type="text/css"> 
+	body {
+		font-family: "Times New Roman", Times, serif;
+		font-size: 20px;
+		color: #000000;
+		background-color: #EEE;
+	}
+
+	h {
+		font-family:"Courier New", Courier, monospace;
+		font-size:35px;
+	}
+
+	.menu A:link {text-decoration: none; color: black;}
+	.menu A:visited {text-decoration: none; color: black;}
+	.menu A:active {text-decoration: none; color: black;}
+	.menu A:hover {text-decoration: none; color: red;}
+
+	tr.d3 { background-color: #eff; }
+	tr.d2 { background-color: #dff; }
+	tr.d1 { background-color: #cff; }
+	tr.verbose { background-color: #fcf; }
+	tr.info { background-color: #cfc; }
+	tr.warning { background-color: #ffc; }
+	tr.error { background-color: #fcc; }
+	tr.fatal { background-color: #faa; }
+
+	a {
+		color: green;
+		text-decoration:none;
+	}
+
+	div.menu {
+		background-color: white;
+		width: 500px;
+		height: 30px;
+		width: 99%;
+		position: absolute;
+	}
+
+	table {
+		background-color: #fafafa;
+		border-collapse:collapse;
+		width: 85%;
+		margin: auto;
+		margin-bottom: 50px;
+	}
+
+	td {
+		padding: 5px;
+		margin: 0;
+		border: 1px solid #eee;
+	}
+</style> 
+
+<script language="Javascript">
+
+function init()
+{
+	update();
+}
+
+function ajax_send() 
+{
+    hr = new XMLHttpRequest();
+
+    hr.open("POST", "/", true);
+    hr.setRequestHeader("Content-Type", 
+        "application/x-www-form-urlencoded");
+
+    hr.onreadystatechange = function() 
+    {
+        if (hr.readyState == 4){
+        	document.getElementById("result").innerHTML = hr.responseText;
+		addRow(hr.responseText);
+	}
+    }
+
+    hr.send(document.f.word.value);
+}
+
+function update()
+{
+	hr = new XMLHttpRequest();
+	hr.open("GET","messages", true);
+	hr.onreadystatechange = function() 
+	{
+		if(hr.responseText != ""){
+			//document.write(hr.responseText);
+			var response = eval(hr.responseText);
+			for(var i in response){
+				addRow(response[i]);
+			}
+		}
+	}
+	hr.send(null);
+
+	if(document.getElementById("autoscroll").value == "on"){
+		window.scrollTo(0, document.body.scrollHeight);
+	}
+
+	timerID = self.setTimeout("update()", 100)
+}
+
+function addCell(row, data){
+	var cell = document.createElement("td");
+	cell.appendChild(document.createTextNode(data));
+	row.appendChild(cell);
+}
+
+function formatDate(ind)
+{
+	date = new Date(ind * 1000.0)
+	return date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+}
+
+function severityToIndex(s)
+{
+	for(i = 0; i < 8; i++){
+		if((s >>> i) & 1){
+			return i;
+		}
+	}
+	return 8;
+}
+
+function addRow(msg){
+	severityString = new Array( "Debug 1", "Debug 2", "Debug 3", "Verbose", "Info", "Warning", "Error", "Fatal", "??" );
+	severityClass = new Array( "d1", "d2", "d3", "verbose", "info", "warning", "error", "fatal", "" );
+
+	var tbody = document.getElementById("msgbody");
+	var row = document.createElement("tr");
+	row.setAttribute("class", severityClass[severityToIndex(msg.severity)]);
+
+	addCell(row, msg.app);
+	addCell(row, msg.instance.substring(msg.instance.length - 8));
+	addCell(row, formatDate(msg.start_time));
+	addCell(row, formatDate(msg.time_sent));
+	addCell(row, formatDate(msg.time_received));
+	addCell(row, msg.file);
+	addCell(row, msg.line);
+	addCell(row, msg.message);
+	addCell(row, severityString[severityToIndex(msg.severity)]);
+
+	tbody.appendChild(row);
+}
+
+</script>
+</head>
+
+<body onLoad="init()">
+<!--<form name="f" onsubmit="ajax_send(); return false;">
+<p> 
+<input name="word" type="text">
+<input value="Do It" type="submit">
+</p>
+<div id="result"></div>
+</form>-->
+
+<table>
+	<thead>
+		<tr>
+			<td>App</td>
+			<td>Instance</td>
+			<td>Start Time</td>
+			<td>Time Sent</td>
+			<td>Time Recv</td>
+			<td>File</td>
+			<td>Line</td>
+			<td>Message</td>
+			<td>Severity</td>
+		</tr>
+	</thead>
+	<tbody id="msgbody">
+		<tr>
+		</tr>
+	</tbody>
+</table>
+
+<div class="menu" id="menu">
+	<form>
+	auto scroll <input id="autoscroll" type="checkbox" checked/>
+	</form>
+</div>
+
+<div id="debug">
+</div>
+
+</body>
+</html>
