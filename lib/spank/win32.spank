@@ -1,0 +1,6 @@
+include spank/common.inc
+
+ldflags lws2_32
+cflags D_WIN32_WINNT=0x0501
+compiler i586-mingw32msvc-gcc
+target test.exe

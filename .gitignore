@@ -1,0 +1,4 @@
+*.pyc
+lib/test
+lib/test.exe
+flog.sqlite

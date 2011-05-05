@@ -22,18 +22,44 @@
 #define AnsiInvertIn "\033[7m" 
 #define AnsiInvertOut "\033[27m"
 
-#include "flog.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
+#ifndef __WIN32__
+
+// Unix version
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <netdb.h>
+
+#define FLOG_HAS_ANSI_COLOR 1
+
+typedef int SOCKET;
+
+#else
+
+// Windows version
+
+#define WIN32_LEAN_AND_MEAN
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+
+#define FLOG_HAS_ANSI_COLOR 0
+
+#endif
+
+#include "flog.h"
+
+#include <stdint.h>
 #include <stdbool.h>
-#include <sys/time.h>
 #include <time.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <sys/time.h>
+#include <stdio.h>
+#include <assert.h>
 
 typedef enum { Flog_TStream, Flog_TServer } Flog_TargetType;
 
@@ -44,7 +70,7 @@ typedef struct Flog_STarget
 	void (*log_callback)(struct Flog_STarget* target, const char* file, 
 		uint32_t lineNumber, Flog_Severity severity, const char* message);
 	
-	int sockfd; /* for servers */
+	SOCKET sockfd; /* for servers */
 	FILE* stream; /* for streams */
 	bool useAnsiColors;
 } Flog_Target;
@@ -82,7 +108,7 @@ bool Flog_WriteExactly(int sockfd, const char* msg, int numbytes)
 	int left = numbytes;
 
 	while(left > 0){
-		int wrote = write(sockfd, msg, left);
+		int wrote = send(sockfd, msg, left, 0);
 
 		if(wrote <= 0){
 			return false;
@@ -98,7 +124,7 @@ bool Flog_ReadExactly(int sockfd, char* buffer, int numbytes)
 {
 	int left = numbytes;
 	while(left > 0){
-		int r = read(sockfd, buffer, left);
+		int r = recv(sockfd, buffer, left, 0);
 
 		if(r <= 0){
 			return false;
@@ -159,8 +185,8 @@ bool Flog_ReadString(int sockfd, char* buffer, int max)
 {
 	// FIXME care about max :x
 	uint32_t len;
-	Flog_ReadUint32(sockfd, &len);
-	Flog_ReadExactly(sockfd, buffer, len);
+	assert(Flog_ReadUint32(sockfd, &len));
+	assert(Flog_ReadExactly(sockfd, buffer, len));
 	buffer[len] = '\0';
 	return true;
 }
@@ -181,7 +207,7 @@ void Flog_LogToServer(Flog_Target* target, const char* file,
 	Flog_WriteUint64(target->sockfd, Flog_GetTimeStamp());
 	Flog_WriteString(target->sockfd, file);
 	Flog_WriteUint32(target->sockfd, lineNumber);
-	write(target->sockfd, &s, 1);
+	send(target->sockfd, (const char*)&s, 1, 0);
 	Flog_WriteString(target->sockfd, message);
 }
 
@@ -192,12 +218,14 @@ void Flog_LogToStream(Flog_Target* target, const char* file,
 		AnsiColorIn(AGreen), AnsiColorIn(AYellow), AnsiColorIn(ARed), AnsiColorIn(ARed), "" };
 	static char ansiColorOut[] = AnsiColorOut;
 	char* colorIn = colorString[8], *colorOut = colorString[8], *fileIn = colorString[8], *fileOut = colorString[8];
+	int tab = 35;
 
-	if(target->useAnsiColors){
+	if(target->useAnsiColors && FLOG_HAS_ANSI_COLOR){
 		colorOut = ansiColorOut;
 		colorIn = colorString[Flog_SeverityToIndex(severity)];
 		fileIn = AnsiBoldIn;
 		fileOut = AnsiBoldOut;
+		tab = 52;
 	}
 
 	struct timeval tv;
@@ -209,7 +237,7 @@ void Flog_LogToStream(Flog_Target* target, const char* file,
 		colorIn, Flog_SeverityToString(severity), colorOut, 
 		fileIn, file, fileOut, lineNumber);
 
-	for(int i = 0; i < 52 - headerLen; i++){
+	for(int i = 0; i < tab - headerLen; i++){
 		putc(' ', target->stream);
 	}
 
@@ -277,6 +305,7 @@ int Flog_AddTargetServer(const char* address, uint16_t port, uint8_t filter)
 	char buffer[1024];
 
 	Flog_ReadString(target->sockfd, buffer, sizeof(buffer));
+
 	if(strcmp(buffer, "ok")){
 		goto error;
 	}

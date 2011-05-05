@@ -1,0 +1,2 @@
+include spank/common.inc
+target		test
