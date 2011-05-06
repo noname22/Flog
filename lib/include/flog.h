@@ -32,21 +32,54 @@ int Flog_AddTargetServer(const char* address, uint16_t port, uint8_t filter);
 
 void Flog_Log(const char* file, uint32_t lineNumber, Flog_Severity severity, const char* format, ...);
 
-#define eprintf(...) fprintf (stderr, __VA_ARGS__)
+#define FlogD FlogD3
+
+#ifndef __cplusplus
 
 #define FlogD1(...) Flog_Log(__FILE__, __LINE__, Flog_SDebug1, __VA_ARGS__)
 #define FlogD2(...) Flog_Log(__FILE__, __LINE__, Flog_SDebug2, __VA_ARGS__)
 #define FlogD3(...) Flog_Log(__FILE__, __LINE__, Flog_SDebug3, __VA_ARGS__)
 
-#define FlogD FlogD3
 #define FlogV(...) Flog_Log(__FILE__, __LINE__, Flog_SVerbose, __VA_ARGS__)
 #define FlogI(...) Flog_Log(__FILE__, __LINE__, Flog_SInfo, __VA_ARGS__)
 #define FlogW(...) Flog_Log(__FILE__, __LINE__, Flog_SWarning, __VA_ARGS__)
 #define FlogE(...) Flog_Log(__FILE__, __LINE__, Flog_SError, __VA_ARGS__)
 #define FlogF(...) Flog_Log(__FILE__, __LINE__, Flog_SFatal, __VA_ARGS__)
 
-#ifdef __cplusplus
+#else
 }
+
+/* C++ Wrapper */
+
+#include <sstream>
+
+#define FlogD1(__string) Log(__string, Flog_SDebug1)
+#define FlogD2(__string) Log(__string, Flog_SDebug2)
+#define FlogD3(__string) Log(__string, Flog_SDebug3)
+#define FlogV(__string) Log(__string, Flog_SVerbose)
+#define FlogI(__string) Log(__string, Flog_SInfo)
+#define FlogW(__string) Log(__string, Flog_SWarning)
+#define FlogE(__string) Log(__string, Flog_SError)
+#define FlogF(__string) Log(__string, Flog_SFatal)
+
+#define FlogExp(__var, __severity) Log("Expression: " << #__var << " = " << ( __var ), __severity)
+
+#define FlogExpD FlogExpD3
+#define FlogExpD1(__var) FlogExp(__var, Flog_SDebug1)
+#define FlogExpD2(__var) FlogExp(__var, Flog_SDebug2)
+#define FlogExpD3(__var) FlogExp(__var, Flog_SDebug3)
+#define FlogExpV(__var) FlogExp(__var, Flog_SVerbose)
+#define FlogExpI(__var) FlogExp(__var, Flog_SInfo)
+#define FlogExpW(__var) FlogExp(__var, Flog_SWarning)
+#define FlogExpE(__var) FlogExp(__var, Flog_SError)
+#define FlogExpF(__var) FlogExp(__var, Flog_SFatal)
+
+#define Log(__string, __severity) do{ \
+        std::ostringstream __tmpStr; \
+        __tmpStr << __string; \
+	Flog_Log(__FILE__, __LINE__, __severity, "%s", __tmpStr.str().c_str());\
+} while(0);
+
 #endif
 
 #endif

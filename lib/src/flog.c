@@ -160,7 +160,7 @@ int Flog_SeverityToIndex(Flog_Severity severity)
 
 const char* Flog_SeverityToString(Flog_Severity severity)
 {
-	static char *severityString[] = { "D1", "D2", "D3", "VV", "II", "WW", "EE", "FF", "??" };
+	static const char *severityString[] = { "D1", "D2", "D3", "VV", "II", "WW", "EE", "FF", "??" };
 	return severityString[Flog_SeverityToIndex(severity)];
 }
 
@@ -276,10 +276,10 @@ void Flog_LogToServer(Flog_Target* target, const char* file,
 void Flog_LogToStream(Flog_Target* target, const char* file, 
 	uint32_t lineNumber, Flog_Severity severity, const char* message)
 {
-	static char *colorString[] = { AnsiColorIn(ACyan), AnsiColorIn(ACyan), AnsiColorIn(ACyan), AnsiColorIn(AMagenta), 
+	static const char *colorString[] = { AnsiColorIn(ACyan), AnsiColorIn(ACyan), AnsiColorIn(ACyan), AnsiColorIn(AMagenta), 
 		AnsiColorIn(AGreen), AnsiColorIn(AYellow), AnsiColorIn(ARed), AnsiColorIn(ARed), "" };
 	static char ansiColorOut[] = AnsiColorOut;
-	char* colorIn = colorString[8], *colorOut = colorString[8], *fileIn = colorString[8], *fileOut = colorString[8];
+	const char* colorIn = colorString[8], *colorOut = colorString[8], *fileIn = colorString[8], *fileOut = colorString[8];
 	int tab = 35;
 
 	if(target->useAnsiColors && FLOG_HAS_ANSI_COLOR){
@@ -451,3 +451,4 @@ void Flog_Log(const char* file, uint32_t lineNumber, Flog_Severity severity, con
 		}
 	}
 }
+

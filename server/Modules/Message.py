@@ -20,8 +20,13 @@ class Message:
 
 	def to_string(self):
 		d = datetime.datetime.fromtimestamp(self.time_sent).strftime("%X")
+		file = self.file
+
+		if len(file) > 16:
+			file = "...%s" % file[-15:]
+
 		return "%s %s %s [%s] %s:%d %s" % (self.app, self.instance[-8:], d, self.severity_as_string(),\
-			 self.file, self.line, self.message)
+			 file, self.line, self.message)
 
 	def to_struct(self):
 		return {'app': self.app, 'start_time': self.start_time, 'instance': self.instance,\

@@ -165,12 +165,17 @@ function addRow(msg){
 	var row = document.createElement("tr");
 	row.setAttribute("class", severityClass[severityToIndex(msg.severity)]);
 
+	var file = msg.file;
+	if(file.length > 16){
+		file = "..." + file.substr(file.length - 16);
+	}
+
 	addCell(row, msg.app);
 	addCell(row, msg.instance.substring(msg.instance.length - 8));
 	addCell(row, formatDate(msg.start_time));
 	addCell(row, formatDate(msg.time_sent));
 	addCell(row, formatDate(msg.time_received));
-	addCell(row, msg.file);
+	addCell(row, file);
 	addCell(row, msg.line);
 	addCell(row, msg.message);
 	addCell(row, severityString[severityToIndex(msg.severity)]);
