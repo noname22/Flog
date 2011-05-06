@@ -1,6 +1,15 @@
-include spank/common.inc
+include		spank/common.inc
 
-ldflags lws2_32
-cflags D_WIN32_WINNT=0x0501
-compiler i586-mingw32msvc-gcc
-target test.exe
+compiler	i586-mingw32msvc-gcc
+targettype	lib-shared
+target		flog.dll
+
+cflags		D_WIN32_WINNT=0x0501
+
+# DLL magic
+ldflags		Wl,--out-implib=flog.lib
+ldflags		Wl,--export-all-symbols
+ldflags		Wl,--enable-auto-import
+ldflags		"Wl,--no-whole-archive -lws2_32"
+
+oncleanscript	"rm -f flog.lib"

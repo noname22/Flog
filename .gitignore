@@ -2,3 +2,6 @@
 lib/test
 lib/test.exe
 flog.sqlite
+flog.lib
+flog.dll
+flog.a

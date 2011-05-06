@@ -73,7 +73,7 @@ class Connection:
 				for cb in self.cb_list:
 					cb(m)
 
-			except NetworkError, e:
+			except (NetworkError, socket.error), e:
 				#print e
 				return
 

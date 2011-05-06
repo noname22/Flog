@@ -1,2 +1,4 @@
-include spank/common.inc
-target		test
+include		spank/common.inc
+targettype	lib-static
+target		flog
+cflags		D_POSIX_C_SOURCE=199506L

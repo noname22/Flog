@@ -7,9 +7,18 @@ from Modules.StdOut import *
 
 import thread
 import threading
+import optparse
 
 def Main():
-	server = Server("localhost", 13000)
+	parser = optparse.OptionParser()
+
+	parser.add_option("-m", "--host", dest = "host", default = "0.0.0.0", help="specify hostname to listen for logger connections on");
+	parser.add_option("-p", "--port", dest = "port", default = "13000", help="port to listen for loggers on");
+
+	(options, args) = parser.parse_args()
+
+	server = Server(options.host, int(options.port))
+
 	db = Db()
 	web_server = WebServer()
 	stdout = StdOut()

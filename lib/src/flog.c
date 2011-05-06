@@ -22,6 +22,16 @@
 #define AnsiInvertIn "\033[7m" 
 #define AnsiInvertOut "\033[27m"
 
+#include <stdint.h>
+#include <stdbool.h>
+#include <time.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <sys/time.h>
+#include <stdio.h>
+#include <assert.h>
+
 #ifndef __WIN32__
 
 // Unix version
@@ -30,10 +40,14 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 #define FLOG_HAS_ANSI_COLOR 1
+#define closesocket close
 
 typedef int SOCKET;
+
+bool Flog_SocketsPlatformInit(){return true;}
 
 #else
 
@@ -47,19 +61,67 @@ typedef int SOCKET;
 
 #define FLOG_HAS_ANSI_COLOR 0
 
+bool Flog_SocketsPlatformInit()
+{
+	WORD wVersionRequested;
+	WSADATA wsaData;
+
+	wVersionRequested = MAKEWORD(2, 2);
+
+	return (WSAStartup(wVersionRequested, &wsaData) == 0);
+}
+
+const char *inet_ntop(int af, const void *src, char *dst, socklen_t cnt)
+{
+        if (af == AF_INET)
+        {
+                struct sockaddr_in in;
+                memset(&in, 0, sizeof(in));
+                in.sin_family = AF_INET;
+                memcpy(&in.sin_addr, src, sizeof(struct in_addr));
+                getnameinfo((struct sockaddr *)&in, sizeof(struct sockaddr_in), dst, cnt, NULL, 0, NI_NUMERICHOST);
+                return dst;
+        }
+        else if (af == AF_INET6)
+        {
+                struct sockaddr_in6 in;
+                memset(&in, 0, sizeof(in));
+                in.sin6_family = AF_INET6;
+                memcpy(&in.sin6_addr, src, sizeof(struct in_addr6));
+                getnameinfo((struct sockaddr *)&in, sizeof(struct sockaddr_in6), dst, cnt, NULL, 0, NI_NUMERICHOST);
+                return dst;
+        }
+        return NULL;
+}
+
+int inet_pton(int af, const char *src, void *dst)
+{
+        struct addrinfo hints, *res, *ressave;
+
+        memset(&hints, 0, sizeof(struct addrinfo));
+        hints.ai_family = af;
+
+        if (getaddrinfo(src, NULL, &hints, &res) != 0)
+        {
+                /*dolog(LOG_ERR, "Couldn't resolve host %s\n", src);*/
+                return -1;
+        }
+
+        ressave = res;
+
+        while (res)
+        {
+                memcpy(dst, res->ai_addr, res->ai_addrlen);
+                res = res->ai_next;
+        }
+
+        freeaddrinfo(ressave);
+        return 0;
+}
+
 #endif
 
 #include "flog.h"
-
-#include <stdint.h>
-#include <stdbool.h>
-#include <time.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <sys/time.h>
-#include <stdio.h>
-#include <assert.h>
 
 typedef enum { Flog_TStream, Flog_TServer } Flog_TargetType;
 
@@ -258,7 +320,18 @@ void Flog_CopyString(const char* source, char** target)
 
 void Flog_Init(const char* applicationName)
 {
+	assert(Flog_SocketsPlatformInit());
 	Flog_CopyString(applicationName, &internal.applicationName);
+}
+
+/* get sockaddr, IPv4 or IPv6: */
+void *Flog_GetInAddr(struct sockaddr *sa)
+{
+	if(sa->sa_family == AF_INET6) {
+		return &(((struct sockaddr_in6*)sa)->sin6_addr);
+	}
+
+	return &(((struct sockaddr_in*)sa)->sin_addr);
 }
 
 int Flog_AddTargetServer(const char* address, uint16_t port, uint8_t filter)
@@ -269,33 +342,46 @@ int Flog_AddTargetServer(const char* address, uint16_t port, uint8_t filter)
 	target->filter = filter;
 	target->log_callback = Flog_LogToServer;
 
-	target->sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	struct addrinfo hints, *servinfo = NULL, *p;
+	char s[INET6_ADDRSTRLEN];
+	int rv;
+	char port_tmp[6];
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
 	
-	struct timeval tv = {10, 0};
-	setsockopt(target->sockfd, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof(struct timeval));
+	snprintf(port_tmp, 6, "%u", port);
 
-	if (!target->sockfd < 0){
+	if ((rv = getaddrinfo(address, port_tmp, &hints, &servinfo)) != 0) {
+		//LogD(iha_error, "getaddrinfo: %s", gai_strerror(rv));
 		goto error;
 	}
 
-	struct hostent* server = gethostbyname(address);
-	if (server == NULL) {
+	// loop through all the results and connect to the first we can
+	for(p = servinfo; p != NULL; p = p->ai_next) {
+		if ((target->sockfd = socket(p->ai_family, p->ai_socktype,
+						p->ai_protocol)) == -1) {
+			continue;
+		}
+
+		if (connect(target->sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+			closesocket(target->sockfd);
+			continue;
+		}
+
+		break;
+	}
+
+	if (p == NULL) {
+		//LogD("failed to connect to server");
 		goto error;
 	}
 
-	struct sockaddr_in serv_addr;
-	memset(&serv_addr, 0, sizeof(serv_addr));
+	inet_ntop(p->ai_family, Flog_GetInAddr((struct sockaddr *)p->ai_addr), s, sizeof s);
 
-	serv_addr.sin_family = AF_INET;
+	freeaddrinfo(servinfo);
 
-	memcpy((char *)server->h_addr_list[0], (char *)&serv_addr.sin_addr.s_addr, server->h_length);
-
-	serv_addr.sin_port = htons(port);
-
-	if (connect(target->sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-		goto error;
-	}
-	
 	// Handshake
 
 	Flog_WriteString(target->sockfd, "flog");
@@ -315,6 +401,10 @@ int Flog_AddTargetServer(const char* address, uint16_t port, uint8_t filter)
 	return 1;
 
 	error:
+	if(servinfo){
+		freeaddrinfo(servinfo);
+	}
+
 	memset(target, 0, sizeof(Flog_Target));
 	return 0;
 }
