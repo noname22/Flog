@@ -1,0 +1,4 @@
+include spank/common.inc
+cflags	D_POSIX_C_SOURCE=199506L
+target		test
+ldflags	L../../lib lflog
