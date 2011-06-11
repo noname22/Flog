@@ -1,0 +1,13 @@
+# Flog pkg-config file
+
+prefix=${pcfiledir}/../..
+libdir=${prefix}/lib
+includedir=${prefix}/include/flog
+
+Name: Flog
+Description: Flog is a remote and local logging solution
+Version: 0.1.0
+Requires: 
+Conflicts:
+Libs: -L${libdir} -lflog
+Cflags: -I${includedir}

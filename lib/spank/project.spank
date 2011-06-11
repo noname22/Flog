@@ -2,3 +2,9 @@ include		spank/common.inc
 targettype	lib-static
 target		flog
 cflags		D_POSIX_C_SOURCE=199506L
+
+inst_copy	lib$(target).a $(inst_prefix)lib/lib$(target).a
+
+inst_copy	include/flog.h $(inst_prefix)/include/flog
+
+inst_copy	pkg-config/flog.pc	$(inst_prefix)lib/pkgconfig/flog.pc
