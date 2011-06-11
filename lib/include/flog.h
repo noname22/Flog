@@ -9,6 +9,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef enum {
 	Flog_SDebug1 = 1,
@@ -45,6 +46,8 @@ void Flog_Log(const char* file, uint32_t lineNumber, Flog_Severity severity, con
 #define FlogW(...) Flog_Log(__FILE__, __LINE__, Flog_SWarning, __VA_ARGS__)
 #define FlogE(...) Flog_Log(__FILE__, __LINE__, Flog_SError, __VA_ARGS__)
 #define FlogF(...) Flog_Log(__FILE__, __LINE__, Flog_SFatal, __VA_ARGS__)
+#define FlogDie(...) Flog_Log(__FILE__, __LINE__, Flog_SFatal, __VA_ARGS__); exit(1)
+#define FlogAssert(__val, ...) if(!(__val)){Flog_Log(__FILE__, __LINE__, Flog_SFatal, __VA_ARGS__); exit(1); }
 
 #else
 }
@@ -61,6 +64,8 @@ void Flog_Log(const char* file, uint32_t lineNumber, Flog_Severity severity, con
 #define FlogW(__string) Log(__string, Flog_SWarning)
 #define FlogE(__string) Log(__string, Flog_SError)
 #define FlogF(__string) Log(__string, Flog_SFatal)
+#define FlogDie(__string) Log(__string, Flog_SFatal); exit(1)
+#define FlogAssert(__val, __string) if(!(__val)){FlogDie(__string);}
 
 #define FlogExp(__var, __severity) Log("Expression: " << #__var << " = " << ( __var ), __severity)
 
