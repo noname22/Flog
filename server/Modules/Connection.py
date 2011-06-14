@@ -20,10 +20,15 @@ class Connection:
 
 	def _read_exactly(self, numbytes):
 		data = ""
-		for i in range(numbytes):
-			data += self.s.recv(1)
+		while len(data) < numbytes:
+			r = self.s.recv(numbytes)
+			if r <= 0:
+				raise NetworkError('connection closed')
+				
+			data += r
 
-		if len(data) < numbytes:
+		if len(data) != numbytes:
+			print '...weird'
 			raise NetworkError('connection closed')
 
 		return data
