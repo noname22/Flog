@@ -1,0 +1,14 @@
+include		spank/common.inc
+
+compiler	i586-mingw32msvc-gcc
+targettype	lib-static
+target		flog
+postbuildscript "i586-mingw32msvc-ranlib lib$(target).a"
+
+cflags		D_WIN32_WINNT=0x0501
+#ldflags		lws2_32
+
+inst_prefix	/usr/local/i586-mingw32msvc/
+
+inst_copy	lib$(target).a $(inst_prefix)lib/
+inst_copy	include/flog.h $(inst_prefix)include/
