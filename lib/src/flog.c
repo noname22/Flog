@@ -318,6 +318,14 @@ void Flog_CopyString(const char* source, char** target)
 	(*target)[size - 1] = '\0';
 }
 
+void Flog_InitDefault(const char* applicationName)
+{
+	assert(Flog_SocketsPlatformInit());
+	Flog_CopyString(applicationName, &internal.applicationName);
+	Flog_AddTargetStream(stdout, Flog_SDebug1 |Flog_SDebug2 | Flog_SDebug3 | Flog_SVerbose | Flog_SInfo | Flog_SWarning, 1);
+	Flog_AddTargetStream(stderr, Flog_SError | Flog_SFatal, 1);
+}
+
 void Flog_Init(const char* applicationName)
 {
 	assert(Flog_SocketsPlatformInit());

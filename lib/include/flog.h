@@ -26,6 +26,7 @@ typedef enum {
 #define Flog_DefaultPort 13000
 
 void Flog_Init(const char* applicationName);
+void Flog_InitDefault(const char* applicationName);
 
 int Flog_AddTargetFile(const char* filename, uint8_t filter);
 void Flog_AddTargetStream(FILE* stream, uint8_t filter, int useAnsiColors);
