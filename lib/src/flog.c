@@ -44,6 +44,7 @@
 
 #define FLOG_HAS_ANSI_COLOR 1
 #define closesocket close
+#define FLOG_NEWLINE "\n"
 
 typedef int SOCKET;
 
@@ -60,6 +61,7 @@ bool Flog_SocketsPlatformInit(){return true;}
 #include <windows.h>
 
 #define FLOG_HAS_ANSI_COLOR 0
+#define FLOG_NEWLINE "\r\n"
 
 bool Flog_SocketsPlatformInit()
 {
@@ -303,7 +305,7 @@ void Flog_LogToStream(Flog_Target* target, const char* file,
 		putc(' ', target->stream);
 	}
 
-	fprintf(target->stream, "%s\n", message);
+	fprintf(target->stream, "%s" FLOG_NEWLINE, message);
 }
 
 void Flog_CopyString(const char* source, char** target)

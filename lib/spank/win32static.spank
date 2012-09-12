@@ -1,9 +1,9 @@
 include		spank/common.inc
 
-compiler	i586-mingw32msvc-gcc
+compiler	i686-w64-mingw32-gcc
 targettype	lib-static
 target		flog
-postbuildscript "i586-mingw32msvc-ranlib lib$(target).a"
+postbuildscript "i686-w64-mingw32-ranlib lib$(target).a"
 
 cflags		D_WIN32_WINNT=0x0501
 #ldflags		lws2_32
